@@ -34,13 +34,11 @@
     .hapus-btn { padding: 5px 10px; background: red; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
     .hapus-btn:hover { background: darkred; }
 
-    /* Modal sederhana */
     .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
     .modal-content { background: #fff; padding: 10px; border-radius: 8px; max-width: 400px; width: 90%; }
     .modal-content img { width: 100%; border-radius: 4px; }
     .close-modal { float: right; font-size: 22px; font-weight: bold; cursor: pointer; color: #333; }
 
-    /* Scanner */
     #qr-reader { margin: 10px auto; }
   </style>
 </head>
@@ -58,13 +56,11 @@
 <div class="data-container" id="adminPanel" style="display:none;">
   <h2>Data Pemesan Tiket 1 Dekade Ultras Manmodel</h2>
 
-  <!-- TAB NAV -->
   <div class="nav-tabs">
     <button id="tabPemesan" class="active" onclick="showTab('pemesan')">Data Pemesan</button>
     <button id="tabMasuk" onclick="showTab('masuk')">Data Masuk Tiket</button>
   </div>
 
-  <!-- TAB: DATA PEMESAN -->
   <div id="tabPemesanContent">
     <div class="table-container">
       <table>
@@ -80,7 +76,6 @@
     </div>
   </div>
 
-  <!-- TAB: DATA MASUK -->
   <div id="tabMasukContent" style="display:none;">
     <div id="qr-reader" style="width: 320px;"></div>
     <input type="text" id="searchInvoiceMasuk" placeholder="Cari Nomor Invoice..." style="width: 100%; padding: 6px; margin: 10px 0;" oninput="filterMasuk()" />
@@ -102,7 +97,7 @@
   <button class="logout-btn" onclick="logout()">Logout</button>
 </div>
 
-<!-- MODAL SEDERHANA -->
+<!-- MODAL -->
 <div id="modalBukti" class="modal">
   <div class="modal-content">
     <span class="close-modal" onclick="closeModal()">&times;</span>
@@ -112,7 +107,6 @@
 
 <script>
   const hargaTiket = { "Early Bird": "Rp 50.000" };
-
   const firebaseConfig = {
     apiKey: "AIzaSyD1HWtoCb-EOapsJu7wnOXIXTEtQEOLCZ8",
     authDomain: "satudekade-4b54a.firebaseapp.com",
@@ -127,10 +121,7 @@
 
   let pemesanData = {};
   let masukData = {};
-  const tabel = document.getElementById('tabelPemesan');
-  const tabelMasuk = document.getElementById('tabelMasuk');
-  const modal = document.getElementById('modalBukti');
-  const imgModal = document.getElementById('imgModal');
+  let qrScanner, scanning = false;
 
   function login() {
     const user = document.getElementById('username').value.trim();
@@ -159,20 +150,19 @@
 
   function showModal(src){ imgModal.src=src; modal.style.display='flex'; }
   function closeModal(){ modal.style.display='none'; imgModal.src=''; }
-  window.onclick = e => { if(e.target===modal) closeModal(); };
 
   function loadData(){
     db.ref('pemesanan').on('value', snap=>{
-      pemesanData={}; tabel.innerHTML='';
+      pemesanData={}; tabelPemesan.innerHTML='';
       snap.forEach(child=>{ pemesanData[child.key]=child.val(); });
       renderPemesanTable(pemesanData);
     });
   }
   function renderPemesanTable(dataObj){
-    tabel.innerHTML=''; let no=1;
+    tabelPemesan.innerHTML=''; let no=1;
     for(const key in dataObj){
       const d = dataObj[key]; const harga = hargaTiket[d.kategori]||'-';
-      tabel.innerHTML += `
+      tabelPemesan.innerHTML += `
         <tr>
           <td>${no++}</td><td>${d.invoice}</td><td>${d.nama}</td><td>${d.email}</td>
           <td>${d.ktp}</td><td>${d.telepon}</td><td>${d.kategori}</td><td>${harga}</td>
@@ -212,35 +202,50 @@
   }
 
   // === SCANNER QR ===
-  function onScanSuccess(decodedText) {
-    const invoice = decodedText.trim();
-    console.log("QR Detected: ", invoice);
+  async function onScanSuccess(decodedText) {
+    if(scanning) return; // proteksi double
+    scanning = true;
 
-    db.ref("pemesanan").orderByChild("invoice").equalTo(invoice).once("value")
-      .then(snap => {
-        if (snap.exists()) {
-          snap.forEach(async child => {
-            const id = child.key;
-            const data = child.val();
-            const snapMasuk = await db.ref('dataMasukTiket').once('value');
-            const nextNo = snapMasuk.numChildren() + 1;
-            data.noUrut = nextNo;
-            await db.ref('dataMasukTiket/'+id).set(data);
-            await db.ref('pemesanan/'+id).remove();
-            alert("Tiket "+invoice+" berhasil dipindahkan ke Data Masuk!");
-          });
-        } else {
-          alert("Invoice "+invoice+" tidak ditemukan di pemesanan!");
-        }
-      });
+    const invoice = decodedText.trim();
+    console.log("QR Detected:", invoice);
+
+    const snap = await db.ref("pemesanan").orderByChild("invoice").equalTo(invoice).once("value");
+    if (snap.exists()) {
+      let alreadyUsed = false;
+
+      // cek apakah sudah ada di dataMasuk
+      const masukSnap = await db.ref("dataMasukTiket").orderByChild("invoice").equalTo(invoice).once("value");
+      if(masukSnap.exists()){ alreadyUsed = true; }
+
+      if(alreadyUsed){
+        alert("❌ Tiket "+invoice+" sudah pernah digunakan!");
+      } else {
+        snap.forEach(async child => {
+          const id = child.key;
+          const data = child.val();
+          const snapMasuk = await db.ref('dataMasukTiket').once('value');
+          const nextNo = snapMasuk.numChildren() + 1;
+          data.noUrut = nextNo;
+
+          await db.ref('dataMasukTiket/'+id).set(data);
+          await db.ref('pemesanan/'+id).remove();
+          alert("✅ Tiket "+invoice+" berhasil dipindahkan ke Data Masuk!");
+        });
+      }
+    } else {
+      alert("❌ Invoice "+invoice+" tidak ditemukan!");
+    }
+
+    // restart scanner setelah 2 detik
+    setTimeout(()=>{ scanning = false; }, 2000);
   }
-  let qrScanner;
+
   function initScanner() {
-    if(qrScanner){ return; } // biar ga double start
+    if(qrScanner){ return; }
     qrScanner = new Html5Qrcode("qr-reader");
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
     qrScanner.start({ facingMode: "environment" }, config, onScanSuccess)
-      .catch(err => { console.error("Scan gagal start: ", err); });
+      .catch(err => { console.error("Scan gagal start:", err); });
   }
 
   function hapusDataMasuk(id){

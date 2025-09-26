@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -39,9 +38,6 @@
     .modal-content { background: #fff; padding: 10px; border-radius: 8px; max-width: 400px; width: 90%; }
     .modal-content img { width: 100%; border-radius: 4px; }
     .close-modal { float: right; font-size: 22px; font-weight: bold; cursor: pointer; color: #333; }
-
-    /* Scanner */
-    #qr-reader { margin: 10px auto; }
   </style>
 </head>
 <body>
@@ -82,13 +78,14 @@
 
   <!-- TAB: DATA MASUK -->
   <div id="tabMasukContent" style="display:none;">
-    <div id="qr-reader" style="width: 320px;"></div>
-
-    <!-- Input untuk scanner USB -->
-    <input type="text" id="scanInput" 
-      placeholder="Arahkan scanner barcode ke sini..." 
-      style="width:100%;padding:8px;margin:10px 0;" 
-      autofocus>
+    <!-- Input untuk scanner Zebra -->
+    <input 
+      type="text" 
+      id="barcodeInput" 
+      placeholder="Scan barcode di sini..." 
+      style="width:100%; padding:10px; margin:10px 0; font-size:16px;" 
+      autofocus 
+    />
 
     <input type="text" id="searchInvoiceMasuk" placeholder="Cari Nomor Invoice..." style="width: 100%; padding: 6px; margin: 10px 0;" oninput="filterMasuk()" />
     <button class="export-btn" onclick="exportTableToExcel('tiket_masuk.xls')">Export Excel</button>
@@ -159,7 +156,6 @@
     document.getElementById('tabMasukContent').style.display = (tab==='masuk')?'block':'none';
     document.getElementById('tabPemesan').classList.toggle('active', tab==='pemesan');
     document.getElementById('tabMasuk').classList.toggle('active', tab==='masuk');
-    if(tab==='masuk'){ initScanner(); }
   }
 
   function parseTanggal(str){ try { return new Date(str).toLocaleString('id-ID'); } catch { return str; } }
@@ -218,11 +214,20 @@
     renderMasukTable(filtered);
   }
 
-  // === SCANNER QR / USB ===
-  function onScanSuccess(decodedText) {
-    const invoice = decodedText.trim();
-    console.log("Scan Detected: ", invoice);
+  // === SCANNER ZEBRA ===
+  const barcodeInput = document.getElementById("barcodeInput");
+  barcodeInput.addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+      const invoice = barcodeInput.value.trim();
+      if (invoice !== "") {
+        prosesBarcode(invoice);
+        barcodeInput.value = ""; // kosongkan setelah scan
+      }
+    }
+  });
 
+  function prosesBarcode(invoice) {
+    console.log("Barcode Detected: ", invoice);
     db.ref("pemesanan").orderByChild("invoice").equalTo(invoice).once("value")
       .then(snap => {
         if (snap.exists()) {
@@ -241,25 +246,6 @@
         }
       });
   }
-
-  // Scanner kamera
-  let qrScanner;
-  function initScanner() {
-    if(qrScanner){ return; } // biar ga double start
-    qrScanner = new Html5Qrcode("qr-reader");
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-    qrScanner.start({ facingMode: "environment" }, config, onScanSuccess)
-      .catch(err => { console.error("Scan gagal start: ", err); });
-  }
-
-  // Scanner USB (alat Indomaret style)
-  document.getElementById("scanInput").addEventListener("input", function(e) {
-    const invoice = e.target.value.trim();
-    if(invoice.length > 5){ // minimal panjang biar ga false trigger
-      onScanSuccess(invoice);  // langsung pakai fungsi yang sama
-      e.target.value = "";     // reset supaya siap scan lagi
-    }
-  });
 
   function hapusDataMasuk(id){
     if(confirm('Yakin ingin menghapus data ini?')){

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - Data Pemesan Tiket</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 0; }
+    h2 { text-align: center; margin: 20px 0; color: #222; }
+    .login-container { max-width: 360px; margin: 100px auto; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1);}
+    .login-container input, .login-container button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 6px; font-size: 16px; }
+    .login-container button { background: #7a7a7b; color: white; border: none; cursor: pointer; }
+    .login-container button:hover { background: #5e5e5f; }
+    .data-container { padding: 20px 20px; }
+    .nav-tabs { display: flex; justify-content: center; margin-bottom: 20px; gap: 20px; }
+    .nav-tabs button { padding: 8px 16px; border: none; background: #ccc; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .nav-tabs button.active { background: #7a7a7b; color: #fff; }
+    .table-container { overflow-x: auto; background: #fff; padding: 10px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.05); margin-bottom: 15px;}
+    table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    th, td { padding: 8px; border: 1px solid #ddd; text-align: center; font-size: 13px; }
+    th { background: #7a7a7b; color: #fff; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    tr:hover { background: #e6e6e6; }
+    .logout-btn { padding: 8px 16px; background: #7a7a7b; color: white; border: none; border-radius: 6px; cursor: pointer; float: right; }
+    .logout-btn:hover { background: #5e5e5f; }
+    img.bukti-thumb { max-height: 60px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; }
+    .export-btn { padding: 8px 16px; background: green; color: #fff; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px;}
+    .export-btn:hover { background: darkgreen; }
+    .hapus-btn { padding: 5px 10px; background: red; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    .hapus-btn:hover { background: darkred; }
+
+    /* Modal sederhana */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+    .modal-content { background: #fff; padding: 10px; border-radius: 8px; max-width: 400px; width: 90%; }
+    .modal-content img { width: 100%; border-radius: 4px; }
+    .close-modal { float: right; font-size: 22px; font-weight: bold; cursor: pointer; color: #333; }
+
+    /* Scanner */
+    #qr-reader { margin: 10px auto; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN ADMIN -->
+<div class="login-container" id="loginForm">
+  <h2>Login Admin</h2>
+  <input type="text" id="username" placeholder="Masukkan Username" autocomplete="off" />
+  <input type="password" id="password" placeholder="Masukkan Password" />
+  <button onclick="login()">Masuk</button>
+</div>
+
+<!-- PANEL ADMIN -->
+<div class="data-container" id="adminPanel" style="display:none;">
+  <h2>Data Pemesan Tiket 1 Dekade Ultras Manmodel</h2>
+
+  <!-- TAB NAV -->
+  <div class="nav-tabs">
+    <button id="tabPemesan" class="active" onclick="showTab('pemesan')">Data Pemesan</button>
+    <button id="tabMasuk" onclick="showTab('masuk')">Data Masuk Tiket</button>
+  </div>
+
+  <!-- TAB: DATA PEMESAN -->
+  <div id="tabPemesanContent">
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>No</th><th>Invoice</th><th>Nama</th><th>Email</th>
+            <th>KTP</th><th>Telepon</th><th>Kategori</th><th>Harga</th>
+            <th>Metode</th><th>Waktu</th><th>Bukti</th>
+          </tr>
+        </thead>
+        <tbody id="tabelPemesan"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: DATA MASUK -->
+  <div id="tabMasukContent" style="display:none;">
+    <div id="qr-reader" style="width: 320px;"></div>
+    <input type="text" id="searchInvoiceMasuk" placeholder="Cari Nomor Invoice..." style="width: 100%; padding: 6px; margin: 10px 0;" oninput="filterMasuk()" />
+    <button class="export-btn" onclick="exportTableToExcel('tiket_masuk.xls')">Export Excel</button>
+    <div class="table-container">
+      <table id="tabelMasukWrapper">
+        <thead>
+          <tr>
+            <th>No</th><th>Invoice</th><th>Nama</th><th>Email</th>
+            <th>KTP</th><th>Telepon</th><th>Kategori</th><th>Harga</th>
+            <th>Metode</th><th>Waktu</th><th>Bukti</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tabelMasuk"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <button class="logout-btn" onclick="logout()">Logout</button>
+</div>
+
+<!-- MODAL SEDERHANA -->
+<div id="modalBukti" class="modal">
+  <div class="modal-content">
+    <span class="close-modal" onclick="closeModal()">&times;</span>
+    <img id="imgModal" src="" alt="Bukti Pembayaran">
+  </div>
+</div>
+
+<script>
+  const hargaTiket = { "Early Bird": "Rp 50.000" };
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyD1HWtoCb-EOapsJu7wnOXIXTEtQEOLCZ8",
+    authDomain: "satudekade-4b54a.firebaseapp.com",
+    databaseURL: "https://satudekade-4b54a-default-rtdb.firebaseio.com",
+    projectId: "satudekade-4b54a",
+    storageBucket: "satudekade-4b54a.appspot.com",
+    messagingSenderId: "76649124389",
+    appId: "1:76649124389:web:3b0b7072ea71e7ece7a5cc"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  let pemesanData = {};
+  let masukData = {};
+  const tabel = document.getElementById('tabelPemesan');
+  const tabelMasuk = document.getElementById('tabelMasuk');
+  const modal = document.getElementById('modalBukti');
+  const imgModal = document.getElementById('imgModal');
+
+  function login() {
+    const user = document.getElementById('username').value.trim();
+    const pass = document.getElementById('password').value;
+    if(user==='admin' && pass==='ultrasmanmodel'){
+      localStorage.setItem('adminLoggedIn','true'); showAdminPanel();
+    } else alert('Username atau password salah!');
+  }
+  function logout() { localStorage.removeItem('adminLoggedIn'); location.reload(); }
+  window.onload = () => { if(localStorage.getItem('adminLoggedIn')==='true') showAdminPanel(); };
+
+  function showAdminPanel() {
+    document.getElementById('loginForm').style.display='none';
+    document.getElementById('adminPanel').style.display='block';
+    loadData(); loadDataMasuk();
+  }
+  function showTab(tab){
+    document.getElementById('tabPemesanContent').style.display = (tab==='pemesan')?'block':'none';
+    document.getElementById('tabMasukContent').style.display = (tab==='masuk')?'block':'none';
+    document.getElementById('tabPemesan').classList.toggle('active', tab==='pemesan');
+    document.getElementById('tabMasuk').classList.toggle('active', tab==='masuk');
+    if(tab==='masuk'){ initScanner(); }
+  }
+
+  function parseTanggal(str){ try { return new Date(str).toLocaleString('id-ID'); } catch { return str; } }
+
+  function showModal(src){ imgModal.src=src; modal.style.display='flex'; }
+  function closeModal(){ modal.style.display='none'; imgModal.src=''; }
+  window.onclick = e => { if(e.target===modal) closeModal(); };
+
+  function loadData(){
+    db.ref('pemesanan').on('value', snap=>{
+      pemesanData={}; tabel.innerHTML='';
+      snap.forEach(child=>{ pemesanData[child.key]=child.val(); });
+      renderPemesanTable(pemesanData);
+    });
+  }
+  function renderPemesanTable(dataObj){
+    tabel.innerHTML=''; let no=1;
+    for(const key in dataObj){
+      const d = dataObj[key]; const harga = hargaTiket[d.kategori]||'-';
+      tabel.innerHTML += `
+        <tr>
+          <td>${no++}</td><td>${d.invoice}</td><td>${d.nama}</td><td>${d.email}</td>
+          <td>${d.ktp}</td><td>${d.telepon}</td><td>${d.kategori}</td><td>${harga}</td>
+          <td>${d.metode}</td><td>${parseTanggal(d.timestamp)}</td>
+          <td><img src="${d.bukti}" class="bukti-thumb" onclick="showModal('${d.bukti}')"></td>
+        </tr>`;
+    }
+  }
+
+  function loadDataMasuk(){
+    db.ref('dataMasukTiket').orderByChild('noUrut').on('value', snap=>{
+      masukData={}; tabelMasuk.innerHTML='';
+      snap.forEach(child=>{ masukData[child.key]=child.val(); });
+      renderMasukTable(masukData);
+    });
+  }
+  function renderMasukTable(dataObj){
+    tabelMasuk.innerHTML=''; let no=1;
+    for(const key in dataObj){
+      const d = dataObj[key]; const harga = hargaTiket[d.kategori]||'-';
+      tabelMasuk.innerHTML += `
+        <tr>
+          <td>${no++}</td><td>${d.invoice}</td><td>${d.nama}</td><td>${d.email}</td>
+          <td>${d.ktp}</td><td>${d.telepon}</td><td>${d.kategori}</td><td>${harga}</td>
+          <td>${d.metode}</td><td>${parseTanggal(d.timestamp)}</td>
+          <td><img src="${d.bukti}" class="bukti-thumb" onclick="showModal('${d.bukti}')"></td>
+          <td><button class="hapus-btn" onclick="hapusDataMasuk('${key}')">Hapus</button></td>
+        </tr>`;
+    }
+  }
+
+  function filterMasuk(){
+    const f=document.getElementById('searchInvoiceMasuk').value.toLowerCase();
+    const filtered={};
+    for(const k in masukData){ if(masukData[k].invoice.toLowerCase().includes(f)) filtered[k]=masukData[k]; }
+    renderMasukTable(filtered);
+  }
+
+  // === SCANNER QR ===
+  function onScanSuccess(decodedText) {
+    const invoice = decodedText.trim();
+    console.log("QR Detected: ", invoice);
+
+    db.ref("pemesanan").orderByChild("invoice").equalTo(invoice).once("value")
+      .then(snap => {
+        if (snap.exists()) {
+          snap.forEach(async child => {
+            const id = child.key;
+            const data = child.val();
+            const snapMasuk = await db.ref('dataMasukTiket').once('value');
+            const nextNo = snapMasuk.numChildren() + 1;
+            data.noUrut = nextNo;
+            await db.ref('dataMasukTiket/'+id).set(data);
+            await db.ref('pemesanan/'+id).remove();
+            alert("Tiket "+invoice+" berhasil dipindahkan ke Data Masuk!");
+          });
+        } else {
+          alert("Invoice "+invoice+" tidak ditemukan di pemesanan!");
+        }
+      });
+  }
+  let qrScanner;
+  function initScanner() {
+    if(qrScanner){ return; } // biar ga double start
+    qrScanner = new Html5Qrcode("qr-reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+    qrScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+      .catch(err => { console.error("Scan gagal start: ", err); });
+  }
+
+  function hapusDataMasuk(id){
+    if(confirm('Yakin ingin menghapus data ini?')){
+      db.ref('dataMasukTiket/'+id).remove();
+    }
+  }
+
+  function exportTableToExcel(filename='export.xls'){
+    const table=document.getElementById("tabelMasukWrapper").outerHTML;
+    const data=`<html><head><meta charset="UTF-8"></head><body>${table}</body></html>`;
+    const blob=new Blob([data],{type:'application/vnd.ms-excel'});
+    const link=document.createElement("a");
+    link.href=URL.createObjectURL(blob); link.download=filename; link.click();
+  }
+</script>
+</body>
+</html>

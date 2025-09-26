@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pemesanan Tiket Anniversary 1 Dekade Ultras Manmodel</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap" rel="stylesheet">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    body { background: #f3f4f6; }
+    .processing-msg { text-align: center; font-weight: 700; color: #f59a24; margin-top: 10px; display: none; }
+
+    @media print { 
+      body { background: white !important; } 
+      .print\:hidden { display: none !important; } 
+    }
+
+    .eticket-container { max-width: 900px; margin: 0 auto; border: 1px dotted #c0c0c0; padding: 16px 24px 32px; background: #fff; }
+    .eticket-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px dotted #c0c0c0; font-size: 13px; color: #404040; }
+    .eticket-logo span.dark-blue { background: #152959; margin-right: 2px; padding: 2px 6px; color: #fff; font-weight: 900; border-radius: 2px; }
+    .eticket-logo span.orange { background: #f59a24; margin-left: 2px; padding: 2px 6px; color: #222; font-weight: 700; border-radius: 2px; }
+
+    .eticket-main { display: flex; margin-top: 24px; border-bottom: 1px dotted #ccc; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+    .eticket-left { flex: 0 0 160px; }
+    .eticket-left img { width: 100%; max-width: 160px; border: 2px solid #f4654a; object-fit: cover; }
+
+    .eticket-center { flex: 1 1 300px; font-size: 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 20px; margin-left: 12px; }
+    .info-label { font-weight: 700; font-size: 11px; color: #444; margin-bottom: 2px; }
+    .info-value { font-weight: 600; color: #222; font-size: 13px; word-break: break-word; }
+
+    .eticket-barcode { text-align: center; min-width: 150px; }
+    #qrcode { width: 100px; height: 100px; margin: 0 auto; }
+    #eInvoice { margin-top: 6px; font-size: 12px; color: #8a6d3b; font-weight: 600; }
+
+    .eticket-actions { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .eticket-actions button, .eticket-actions a { padding: 10px; font-weight: 600; border-radius: 5px; border: none; text-align: center; cursor: pointer; text-decoration: none; }
+    .btn-print { background-color: #3b82f6; color: white; }
+    .btn-wa { background-color: #16a34a; color: white; }
+
+    .eticket-terms { margin-top: 20px; padding-top: 10px; border-top: 1px dotted #c0c0c0; font-size: 12px; line-height: 1.4; color: #3b3b3b; }
+    .eticket-terms h2 { font-size: 14px; margin-bottom: 10px; font-weight: 700; color: #152959; }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+<!-- Form Pemesanan -->
+<div class="container max-w-xl mx-auto p-4 bg-white shadow rounded mt-6" id="formSection">
+  <div class="text-center mb-6">
+    <img src="glorious.png" alt="Logo Ultras Manmodel" class="w-full mx-auto" />
+  </div>
+
+  <form id="pesanForm" class="space-y-4" enctype="multipart/form-data">
+    <div>
+      <label for="nama" class="font-semibold">Nama Lengkap</label>
+      <input type="text" id="nama" required class="w-full p-2 border rounded" />
+    </div>
+    <div>
+      <label for="email" class="font-semibold">Email</label>
+      <input type="email" id="email" required class="w-full p-2 border rounded" />
+    </div>
+    <div>
+      <label for="ktp" class="font-semibold">No KTP</label>
+      <input type="text" id="ktp" required class="w-full p-2 border rounded" />
+    </div>
+    <div>
+      <label for="telp" class="font-semibold">No Telepon</label>
+      <input type="text" id="telp" required class="w-full p-2 border rounded" />
+    </div>
+    <div>
+      <label class="font-semibold">Kategori Tiket</label>
+      <input type="hidden" id="kategori" value="Early Bird" />
+      <div class="p-2 border rounded bg-gray-100 text-gray-700 font-semibold">Early Bird</div>
+      <div class="mt-2 text-sm text-blue-600 font-semibold">Harga: Rp 50.000</div>
+    </div>
+
+    <div class="bg-gray-50 p-4 border rounded mt-4">
+      <h4 class="font-semibold mb-2">Metode Pembayaran</h4>
+      <table class="text-sm w-full mb-2">
+        <tr><td class="font-medium">Bank</td><td>: BCA</td></tr>
+        <tr><td class="font-medium">No. Rekening</td><td>: 8640910942</td></tr>
+        <tr><td class="font-medium">Atas Nama</td><td>: MUHAMMAD AJI YOGA PRATAMA</td></tr>
+      </table>
+      <label for="buktiPembayaran" class="font-semibold mt-4 block">Upload Bukti Pembayaran:</label>
+      <input type="file" id="buktiPembayaran" accept="image/*" required class="w-full p-2 border rounded" />
+      <img id="previewBukti" src="" class="mt-2 max-h-40 object-contain hidden border rounded" />
+    </div>
+
+    <input type="hidden" id="metode" value="BCA - 8640910942 (MUHAMMAD AJI YOGA PRATAMA)" />
+    <button id="pesanBtn" type="submit" class="w-full bg-blue-700 text-white py-2 font-semibold rounded hover:bg-blue-800">Pesan Tiket</button>
+    <div id="processingMsg" class="processing-msg">Memproses...</div>
+  </form>
+</div>
+
+<!-- E-Ticket -->
+<div id="eticketSection" class="hidden">
+  <section class="eticket-container">
+    <header class="eticket-header">
+      <div class="eticket-logo"><span class="dark-blue">1 Dekade</span><span class="orange">Ultras Manmodel</span></div>
+      <div class="e-ticket">E-Ticket</div>
+    </header>
+
+    <section class="eticket-main">
+      <div class="eticket-left">
+        <img src="pamflet.JPG" alt="Poster Event" />
+      </div>
+      <div class="eticket-center">
+        <div>
+          <div class="info-label">Nama Customer</div>
+          <div class="info-value" id="eNama">-</div>
+        </div>
+        <div>
+          <div class="info-label">Kategori</div>
+          <div class="info-value" id="eKategori">-</div>
+        </div>
+        <div>
+          <div class="info-label">Harga</div>
+          <div class="info-value" id="eHarga">Rp -</div>
+        </div>
+        <div>
+          <div class="info-label">Lokasi Acara</div>
+          <div class="info-value">Gedung Baresta Cafe</div>
+        </div>
+        <div>
+          <div class="info-label">Tanggal Acara</div>
+          <div class="info-value">15 November 2025</div>
+        </div>
+      </div>
+      <div class="eticket-barcode">
+        <div id="qrcode"></div>
+        <div id="eInvoice"></div>
+      </div>
+    </section>
+
+    <div class="eticket-actions print:hidden">
+      <button class="btn-print" onclick="window.print()">Cetak E-Ticket</button>
+      <a id="waButton" class="btn-wa" target="_blank">Konfirmasi via WhatsApp Panitia</a>
+    </div>
+
+    <section class="eticket-terms">
+      <h2>Syarat & Ketentuan:</h2>
+      <p>1 Tiket berlaku untuk 1 orang dan 1 hari sesuai tanggal acara.</p>
+      <p>Tunjukkan e-ticket untuk menukarkan gelang fisik di lokasi penukaran.</p>
+      <p>Lokasi penukaran di belakang pasar singonoyo (warung mak'e).</p>
+      <p>Penyalahgunaan tiket akan berakibat pembatalan tanpa pengembalian dana.</p>
+      <p>1 akun email digunakan untuk 1 pembelian tiket.</p>
+    </section>
+  </section>
+</div>
+
+<script>
+  const hargaTiket = { "Early Bird": "Rp 50.000" };
+  const waNumber = "6285855094087";
+  const kuotaMax = 10;
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyD1HWtoCb-EOapsJu7wnOXIXTEtQEOLCZ8",
+    authDomain: "satudekade-4b54a.firebaseapp.com",
+    databaseURL: "https://satudekade-4b54a-default-rtdb.firebaseio.com",
+    projectId: "satudekade-4b54a",
+    storageBucket: "satudekade-4b54a.appspot.com",
+    messagingSenderId: "76649124389",
+    appId: "1:76649124389:web:3b0b7072ea71e7ece7a5cc"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  function generateInvoiceCode(nama) {
+    const parts = nama.trim().split(/\s+/);
+    const two = parts.slice(0, 2).join("-").toUpperCase();
+    const now = new Date();
+    const tgl = now.getFullYear() + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0");
+    const rand = Math.random().toString(36).substring(2,6).toUpperCase();
+    return `INV-${two}-${tgl}-${rand}`;
+  }
+
+  const buktiInput = document.getElementById('buktiPembayaran');
+  const previewBukti = document.getElementById('previewBukti');
+  buktiInput.addEventListener('change', function(){
+    const file = this.files[0];
+    if(file){
+      const reader = new FileReader();
+      reader.onload = e => { previewBukti.src = e.target.result; previewBukti.classList.remove('hidden'); }
+      reader.readAsDataURL(file);
+    } else {
+      previewBukti.src = ""; previewBukti.classList.add('hidden');
+    }
+  });
+
+  async function cekKuota(){
+    const snapshot = await db.ref('pemesanan').once('value');
+    const data = snapshot.val();
+    return data ? Object.keys(data).length : 0;
+  }
+
+  document.getElementById("pesanForm").addEventListener("submit", async e=>{
+    e.preventDefault();
+    const btn = document.getElementById("pesanBtn");
+    const msg = document.getElementById("processingMsg");
+    btn.disabled = true; msg.style.display="block";
+
+    const terjual = await cekKuota();
+    if(terjual >= kuotaMax){
+      alert("Maaf, kuota tiket sudah penuh.");
+      btn.disabled=false; msg.style.display="none";
+      return;
+    }
+
+    const file = buktiInput.files[0];
+    if(!file){
+      alert("Mohon upload bukti pembayaran.");
+      btn.disabled=false; msg.style.display="none";
+      return;
+    }
+
+    const nama = document.getElementById("nama").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const ktp = document.getElementById("ktp").value.trim();
+    const telp = document.getElementById("telp").value.trim();
+    const kategori = document.getElementById("kategori").value;
+    const harga = hargaTiket[kategori] || "-";
+    const metode = document.getElementById("metode").value;
+    const invoice = generateInvoiceCode(nama);
+    const timestamp = new Date().toISOString();
+
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      const buktiBase64 = evt.target.result;
+      const data = { nama, email, ktp, telepon: telp, kategori, harga, metode, invoice, timestamp, bukti: buktiBase64 };
+
+      db.ref("pemesanan/"+invoice).set(data).then(()=>{
+        // Isi data e-ticket
+        document.getElementById("eNama").innerText = nama;
+        document.getElementById("eKategori").innerText = kategori;
+        document.getElementById("eHarga").innerText = harga;
+        document.getElementById("eInvoice").innerText = invoice;
+
+        document.getElementById("qrcode").innerHTML="";
+        new QRCode(document.getElementById("qrcode"), { text: invoice, width:100, height:100 });
+
+        const waMsg = `Halo panitia, saya ingin konfirmasi tiket.\nNama: ${nama}\nInvoice: ${invoice}`;
+        document.getElementById("waButton").href = `https://wa.me/${waNumber}?text=${encodeURIComponent(waMsg)}`;
+
+        document.getElementById("formSection").style.display="none";
+        document.getElementById("eticketSection").classList.remove("hidden");
+        window.scrollTo({top:0, behavior:"smooth"});
+        btn.disabled=false; msg.style.display="none";
+      }).catch(err=>{
+        alert("Gagal menyimpan data: "+err.message);
+        btn.disabled=false; msg.style.display="none";
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+</script>
+</body>
+</html>

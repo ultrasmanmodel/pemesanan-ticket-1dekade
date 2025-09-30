@@ -254,9 +254,12 @@
   // === SCANNER KAMERA HP ===
   let lastScanned = "";       
   let scanCooldown = false;   
+  let html5QrCode = null;     // 👈 dijadikan global instance
 
   function startScanner(){
-    const html5QrCode = new Html5Qrcode("reader");
+    if (html5QrCode) return; // 👈 kalau sudah jalan, jangan start ulang
+
+    html5QrCode = new Html5Qrcode("reader");
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
     html5QrCode.start(
@@ -266,17 +269,58 @@
         if (!scanCooldown && decodedText !== lastScanned) {
           scanCooldown = true;
           lastScanned = decodedText;
-          await prosesMasuk(decodedText);
-          setTimeout(() => { scanCooldown = false; }, 2000);
+
+          await prosesMasuk(decodedText); // langsung proses
+          
+          // reset cooldown, biar bisa scan lagi tanpa refresh
+          setTimeout(() => { scanCooldown = false; }, 1500);
         }
       },
-      (errorMessage) => {}
-    ).catch(err => { console.error("Gagal akses kamera", err); });
+      (errorMessage) => {
+        // scanner idle error, abaikan biar tidak ganggu
+      }
+    ).catch(err => { 
+      console.error("Gagal akses kamera", err); 
+    });
   }
 
-  function stopScanner(){
+  async function stopScanner(){
+    if (html5QrCode) {
+      try {
+        await html5QrCode.stop(); // 👈 pastikan kamera benar-benar mati
+      } catch(e) {
+        console.warn("Gagal stop kamera:", e);
+      }
+      html5QrCode.clear();
+      html5QrCode = null; // reset instance supaya bisa start lagi
+    }
     document.getElementById("reader").innerHTML="";
   }
+
+  // === PROSES MASUK + NOTIFIKASI ===
+  async function prosesMasuk(invoice){
+    const cekMasuk = await db.ref("dataMasukTiket").orderByChild("invoice").equalTo(invoice).once("value");
+    if(cekMasuk.exists()){ 
+      alert("⚠️ Tiket dengan invoice "+invoice+" sudah digunakan masuk!");
+      return; 
+    }
+
+    const snap = await db.ref("pemesanan").orderByChild("invoice").equalTo(invoice).once("value");
+    if(snap.exists()){
+      snap.forEach(async child=>{
+        const id=child.key; const data=child.val();
+        const snapMasuk=await db.ref('dataMasukTiket').once('value');
+        const nextNo=snapMasuk.numChildren()+1;
+        data.noUrut=nextNo;
+        await db.ref('dataMasukTiket/'+id).set(data);
+        await db.ref('pemesanan/'+id).remove();
+        alert("✅ Tiket "+invoice+" berhasil masuk!");
+      });
+    } else { 
+      alert("❌ Invoice "+invoice+" tidak ditemukan!"); 
+    }
+  }
 </script>
+
 </body>
 </html>

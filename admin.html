@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <!-- Library scanner kamera -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -38,6 +40,7 @@
     .modal-content { background: #fff; padding: 10px; border-radius: 8px; max-width: 400px; width: 90%; }
     .modal-content img { width: 100%; border-radius: 4px; }
     .close-modal { float: right; font-size: 22px; font-weight: bold; cursor: pointer; color: #333; }
+    #reader { width: 100%; margin: 10px auto; }
   </style>
 </head>
 <body>
@@ -79,6 +82,10 @@
   <!-- TAB: DATA MASUK -->
   <div id="tabMasukContent" style="display:none;">
     <input type="text" id="scanInvoiceInput" placeholder="Scan / Input Invoice & Enter..." style="width: 100%; padding: 10px; margin: 10px 0; font-size: 16px;" autofocus />
+    
+    <!-- Kamera scanner -->
+    <div id="reader"></div>
+
     <button class="export-btn" onclick="exportTableToExcel('tiket_masuk.xls')">Export Excel</button>
     <div class="table-container">
       <table id="tabelMasukWrapper">
@@ -141,6 +148,7 @@
     document.getElementById('loginForm').style.display='none';
     document.getElementById('adminPanel').style.display='block';
     loadData(); loadDataMasuk();
+    startScanner(); // aktifkan kamera setelah login
   }
   function showTab(tab){
     document.getElementById('tabPemesanContent').style.display = (tab==='pemesan')?'block':'none';
@@ -198,7 +206,7 @@
     }
   }
 
-  // SCAN INVOICE via INPUT / SCANNER
+  // Input manual tetap bisa
   document.getElementById("scanInvoiceInput").addEventListener("keypress", function(e){
     if(e.key === "Enter"){
       e.preventDefault();
@@ -208,6 +216,13 @@
   });
 
   async function prosesMasuk(invoice){
+    // Cegah duplikat
+    const cekMasuk = await db.ref("dataMasukTiket").orderByChild("invoice").equalTo(invoice).once("value");
+    if(cekMasuk.exists()){
+      alert("Invoice "+invoice+" sudah digunakan masuk!");
+      return;
+    }
+
     const snap = await db.ref("pemesanan").orderByChild("invoice").equalTo(invoice).once("value");
     if(snap.exists()){
       snap.forEach(async child=>{
@@ -217,10 +232,10 @@
         data.noUrut=nextNo;
         await db.ref('dataMasukTiket/'+id).set(data);
         await db.ref('pemesanan/'+id).remove();
-        alert("Tiket "+invoice+" berhasil masuk!");
+        alert("✅ Tiket "+invoice+" berhasil masuk!");
       });
     } else {
-      alert("Invoice "+invoice+" tidak ditemukan!");
+      alert("❌ Invoice "+invoice+" tidak ditemukan!");
     }
   }
 
@@ -236,6 +251,25 @@
     const blob=new Blob([data],{type:'application/vnd.ms-excel'});
     const link=document.createElement("a");
     link.href=URL.createObjectURL(blob); link.download=filename; link.click();
+  }
+
+  // === SCANNER KAMERA HP ===
+  function startScanner(){
+    const html5QrCode = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    html5QrCode.start(
+      { facingMode: "environment" }, // kamera belakang HP
+      config,
+      (decodedText) => {
+        prosesMasuk(decodedText);
+      },
+      (errorMessage) => {
+        // bisa diabaikan
+      }
+    ).catch(err => {
+      console.error("Gagal akses kamera", err);
+    });
   }
 </script>
 </body>

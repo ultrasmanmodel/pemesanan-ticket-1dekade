@@ -21,29 +21,21 @@
     .processing-msg { text-align: center; font-weight: 700; color: #f59a24; margin-top: 10px; display: none; }
 
     @media print {
-  body { background: white !important; margin: 0; }
-  .print\:hidden { display: none !important; }
-  .eticket-container {
-    border: 1px solid #000;
-    box-shadow: none !important;
-    page-break-inside: avoid;
-  }
-  .eticket-header {
-    font-size: 16px;
-    font-weight: bold;
-    border-bottom: 2px solid #000;
-    padding-bottom: 8px;
-  }
   .eticket-main {
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 12px;
-    margin-bottom: 12px;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
   }
-  .eticket-terms {
-    font-size: 11px;
-    line-height: 1.5;
+  .eticket-center {
+    flex: 1 1 auto !important;
+  }
+  .eticket-barcode {
+    text-align: center;
+    min-width: 150px;
+    margin-left: auto;
   }
 }
+
 
 
     .eticket-container { max-width: 900px; margin: 0 auto; border: 1px dotted #c0c0c0; padding: 16px 24px 32px; background: #fff; }
@@ -123,17 +115,24 @@
 </div>
 
 <!-- E-Ticket -->
+<!-- Bagian E-Ticket -->
 <div id="eticketSection" class="hidden">
   <section class="eticket-container">
     <header class="eticket-header">
-      <div class="eticket-logo"><span class="dark-blue">1 Dekade</span><span class="orange">Ultras Manmodel</span></div>
+      <div class="eticket-logo">
+        <span class="dark-blue">1 Dekade</span>
+        <span class="orange">Ultras Manmodel</span>
+      </div>
       <div class="e-ticket">E-Ticket</div>
     </header>
 
     <section class="eticket-main">
+      <!-- Poster -->
       <div class="eticket-left">
         <img src="pamflet.JPG" alt="Poster Event" />
       </div>
+
+      <!-- Data Customer -->
       <div class="eticket-center">
         <div>
           <div class="info-label">Nama Customer</div>
@@ -156,17 +155,21 @@
           <div class="info-value">15 November 2025</div>
         </div>
       </div>
+
+      <!-- Barcode selalu di kanan atas -->
       <div class="eticket-barcode">
         <div id="qrcode"></div>
         <div id="eInvoice"></div>
       </div>
     </section>
 
+    <!-- Tombol Aksi -->
     <div class="eticket-actions print:hidden">
       <button class="btn-print" onclick="cetakEticket()">Cetak E-Ticket</button>
       <a id="waButton" class="btn-wa" target="_blank">Konfirmasi via WhatsApp Panitia</a>
     </div>
 
+    <!-- Syarat & Ketentuan -->
     <section class="eticket-terms">
       <h2>Syarat & Ketentuan:</h2>
       <p>1 Tiket berlaku untuk 1 orang dan 1 hari sesuai tanggal acara.</p>
@@ -177,6 +180,7 @@
     </section>
   </section>
 </div>
+
 
 <script>
   const hargaTiket = { "Pree Sale 1": "Rp 65.000" };

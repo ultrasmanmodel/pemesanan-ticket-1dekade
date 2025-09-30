@@ -78,16 +78,7 @@
 
   <!-- TAB: DATA MASUK -->
   <div id="tabMasukContent" style="display:none;">
-    <!-- Input untuk scanner Zebra -->
-    <input 
-      type="text" 
-      id="barcodeInput" 
-      placeholder="Scan barcode di sini..." 
-      style="width:100%; padding:10px; margin:10px 0; font-size:16px;" 
-      autofocus 
-    />
-
-    <input type="text" id="searchInvoiceMasuk" placeholder="Cari Nomor Invoice..." style="width: 100%; padding: 6px; margin: 10px 0;" oninput="filterMasuk()" />
+    <input type="text" id="scanInvoiceInput" placeholder="Scan / Input Invoice & Enter..." style="width: 100%; padding: 10px; margin: 10px 0; font-size: 16px;" autofocus />
     <button class="export-btn" onclick="exportTableToExcel('tiket_masuk.xls')">Export Excel</button>
     <div class="table-container">
       <table id="tabelMasukWrapper">
@@ -115,7 +106,7 @@
 </div>
 
 <script>
-  const hargaTiket = { "Early Bird": "Rp 50.000" };
+  const hargaTiket = { "Pree Sale 1": "Rp 65.000" };
 
   const firebaseConfig = {
     apiKey: "AIzaSyD1HWtoCb-EOapsJu7wnOXIXTEtQEOLCZ8",
@@ -207,44 +198,30 @@
     }
   }
 
-  function filterMasuk(){
-    const f=document.getElementById('searchInvoiceMasuk').value.toLowerCase();
-    const filtered={};
-    for(const k in masukData){ if(masukData[k].invoice.toLowerCase().includes(f)) filtered[k]=masukData[k]; }
-    renderMasukTable(filtered);
-  }
-
-  // === SCANNER ZEBRA ===
-  const barcodeInput = document.getElementById("barcodeInput");
-  barcodeInput.addEventListener("keypress", function(e) {
-    if (e.key === "Enter") {
-      const invoice = barcodeInput.value.trim();
-      if (invoice !== "") {
-        prosesBarcode(invoice);
-        barcodeInput.value = ""; // kosongkan setelah scan
-      }
+  // SCAN INVOICE via INPUT / SCANNER
+  document.getElementById("scanInvoiceInput").addEventListener("keypress", function(e){
+    if(e.key === "Enter"){
+      e.preventDefault();
+      const invoice = this.value.trim();
+      if(invoice!==""){ prosesMasuk(invoice); this.value=""; }
     }
   });
 
-  function prosesBarcode(invoice) {
-    console.log("Barcode Detected: ", invoice);
-    db.ref("pemesanan").orderByChild("invoice").equalTo(invoice).once("value")
-      .then(snap => {
-        if (snap.exists()) {
-          snap.forEach(async child => {
-            const id = child.key;
-            const data = child.val();
-            const snapMasuk = await db.ref('dataMasukTiket').once('value');
-            const nextNo = snapMasuk.numChildren() + 1;
-            data.noUrut = nextNo;
-            await db.ref('dataMasukTiket/'+id).set(data);
-            await db.ref('pemesanan/'+id).remove();
-            alert("Tiket "+invoice+" berhasil dipindahkan ke Data Masuk!");
-          });
-        } else {
-          alert("Invoice "+invoice+" tidak ditemukan di pemesanan!");
-        }
+  async function prosesMasuk(invoice){
+    const snap = await db.ref("pemesanan").orderByChild("invoice").equalTo(invoice).once("value");
+    if(snap.exists()){
+      snap.forEach(async child=>{
+        const id=child.key; const data=child.val();
+        const snapMasuk=await db.ref('dataMasukTiket').once('value');
+        const nextNo=snapMasuk.numChildren()+1;
+        data.noUrut=nextNo;
+        await db.ref('dataMasukTiket/'+id).set(data);
+        await db.ref('pemesanan/'+id).remove();
+        alert("Tiket "+invoice+" berhasil masuk!");
       });
+    } else {
+      alert("Invoice "+invoice+" tidak ditemukan!");
+    }
   }
 
   function hapusDataMasuk(id){

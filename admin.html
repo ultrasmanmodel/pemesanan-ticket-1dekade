@@ -247,7 +247,8 @@
   }
 
   // === SCANNER KAMERA HP ===
-let scannerActive = false; // penanda agar tidak scan berulang
+let lastScanned = "";       // simpan kode terakhir
+let scanCooldown = false;   // penanda cooldown
 
 function startScanner(){
   const html5QrCode = new Html5Qrcode("reader");
@@ -257,25 +258,25 @@ function startScanner(){
     { facingMode: "environment" }, // kamera belakang HP
     config,
     async (decodedText) => {
-      if (!scannerActive) {  // hanya eksekusi sekali
-        scannerActive = true;
-        await prosesMasuk(decodedText); 
-        html5QrCode.stop().then(() => {
-          console.log("Scanner berhenti setelah sukses.");
-          document.getElementById("reader").innerHTML = "<p style='color:green;font-weight:bold'>✅ Scan berhasil!</p>";
-        }).catch(err => {
-          console.error("Gagal stop scanner", err);
-        });
+      if (!scanCooldown && decodedText !== lastScanned) {
+        scanCooldown = true;
+        lastScanned = decodedText;
+
+        await prosesMasuk(decodedText);
+
+        // kasih jeda 2 detik sebelum bisa scan lagi
+        setTimeout(() => {
+          scanCooldown = false;
+        }, 2000);
       }
     },
     (errorMessage) => {
-      // error kecil bisa diabaikan
+      // error kecil diabaikan
     }
   ).catch(err => {
     console.error("Gagal akses kamera", err);
   });
 }
-
 </script>
 </body>
 </html>

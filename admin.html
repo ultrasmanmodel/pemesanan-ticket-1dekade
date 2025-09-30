@@ -247,22 +247,35 @@
   }
 
   // === SCANNER KAMERA HP ===
-  function startScanner(){
-    if(qrScanner) return;
-    qrScanner = new Html5Qrcode("reader");
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+let scannerActive = false; // penanda agar tidak scan berulang
 
-    qrScanner.start(
-      { facingMode: "environment" },
-      config,
-      (decodedText) => { prosesMasuk(decodedText.trim()); },
-      () => {}
-    ).catch(err => { console.error("Gagal akses kamera", err); });
-  }
+function startScanner(){
+  const html5QrCode = new Html5Qrcode("reader");
+  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-  function stopScanner(){
-    if(qrScanner){ qrScanner.stop().then(()=>{ qrScanner=null; }).catch(()=>{}); }
-  }
+  html5QrCode.start(
+    { facingMode: "environment" }, // kamera belakang HP
+    config,
+    async (decodedText) => {
+      if (!scannerActive) {  // hanya eksekusi sekali
+        scannerActive = true;
+        await prosesMasuk(decodedText); 
+        html5QrCode.stop().then(() => {
+          console.log("Scanner berhenti setelah sukses.");
+          document.getElementById("reader").innerHTML = "<p style='color:green;font-weight:bold'>✅ Scan berhasil!</p>";
+        }).catch(err => {
+          console.error("Gagal stop scanner", err);
+        });
+      }
+    },
+    (errorMessage) => {
+      // error kecil bisa diabaikan
+    }
+  ).catch(err => {
+    console.error("Gagal akses kamera", err);
+  });
+}
+
 </script>
 </body>
 </html>

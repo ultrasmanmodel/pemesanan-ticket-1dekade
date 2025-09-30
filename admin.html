@@ -218,7 +218,10 @@
 
   async function prosesMasuk(invoice){
     const cekMasuk = await db.ref("dataMasukTiket").orderByChild("invoice").equalTo(invoice).once("value");
-    if(cekMasuk.exists()){ alert("Invoice "+invoice+" sudah digunakan masuk!"); return; }
+    if(cekMasuk.exists()){ 
+      alert("⚠️ Tiket dengan invoice "+invoice+" sudah digunakan masuk!");
+      return; 
+    }
 
     const snap = await db.ref("pemesanan").orderByChild("invoice").equalTo(invoice).once("value");
     if(snap.exists()){
@@ -231,7 +234,9 @@
         await db.ref('pemesanan/'+id).remove();
         alert("✅ Tiket "+invoice+" berhasil masuk!");
       });
-    } else { alert("❌ Invoice "+invoice+" tidak ditemukan!"); }
+    } else { 
+      alert("❌ Invoice "+invoice+" tidak ditemukan!"); 
+    }
   }
 
   function hapusDataMasuk(id){
@@ -247,36 +252,31 @@
   }
 
   // === SCANNER KAMERA HP ===
-let lastScanned = "";       // simpan kode terakhir
-let scanCooldown = false;   // penanda cooldown
+  let lastScanned = "";       
+  let scanCooldown = false;   
 
-function startScanner(){
-  const html5QrCode = new Html5Qrcode("reader");
-  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+  function startScanner(){
+    const html5QrCode = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-  html5QrCode.start(
-    { facingMode: "environment" }, // kamera belakang HP
-    config,
-    async (decodedText) => {
-      if (!scanCooldown && decodedText !== lastScanned) {
-        scanCooldown = true;
-        lastScanned = decodedText;
+    html5QrCode.start(
+      { facingMode: "environment" }, 
+      config,
+      async (decodedText) => {
+        if (!scanCooldown && decodedText !== lastScanned) {
+          scanCooldown = true;
+          lastScanned = decodedText;
+          await prosesMasuk(decodedText);
+          setTimeout(() => { scanCooldown = false; }, 2000);
+        }
+      },
+      (errorMessage) => {}
+    ).catch(err => { console.error("Gagal akses kamera", err); });
+  }
 
-        await prosesMasuk(decodedText);
-
-        // kasih jeda 2 detik sebelum bisa scan lagi
-        setTimeout(() => {
-          scanCooldown = false;
-        }, 2000);
-      }
-    },
-    (errorMessage) => {
-      // error kecil diabaikan
-    }
-  ).catch(err => {
-    console.error("Gagal akses kamera", err);
-  });
-}
+  function stopScanner(){
+    document.getElementById("reader").innerHTML="";
+  }
 </script>
 </body>
 </html>
